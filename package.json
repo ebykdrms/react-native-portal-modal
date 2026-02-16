@@ -1,7 +1,7 @@
 {
   "name": "@ebykdrms/react-native-portal-modal",
-  "version": "0.1.0",
-  "description": "JS düzeyinde portal ve reanimated destekli bir modalBir portal ve reanimated ile desteklenen modal",
+  "version": "0.1.1",
+  "description": "JS düzeyinde portal ve reanimated destekli bir modal",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
