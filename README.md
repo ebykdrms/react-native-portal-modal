@@ -1,4 +1,4 @@
-# react-native-portal-modal
+# @ebykdrms/react-native-portal-modal
 
 JS düzeyinde portal ve reanimated destekli bir modalBir portal ve reanimated ile desteklenen modal
 
@@ -6,19 +6,40 @@ JS düzeyinde portal ve reanimated destekli bir modalBir portal ve reanimated il
 
 
 ```sh
-npm install react-native-portal-modal
+npm install @ebykdrms/react-native-portal-modal react-native-reanimated
 ```
 
 
 ## Usage
 
 
-```js
-import { multiply } from 'react-native-portal-modal';
+```tsx
+import React, { useState } from 'react';
+import { Button, Text, View } from 'react-native';
+import { PortalProvider, PortalModal } from '@ebykdrms/react-native-portal-modal';
 
-// ...
+export default function App() {
+	const [visible, setVisible] = useState(false);
 
-const result = await multiply(3, 7);
+	return (
+		<PortalProvider>
+			<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+				<Button title="Open modal" onPress={() => setVisible(true)} />
+			</View>
+
+			<PortalModal
+				isVisible={visible}
+				onBackdropPress={() => setVisible(false)}
+				enteringAnimation="fadeIn"
+				exitingAnimation="fadeOut"
+			>
+				<View style={{ margin: 24, padding: 16, borderRadius: 12, backgroundColor: '#fff' }}>
+					<Text>Portal modal content</Text>
+				</View>
+			</PortalModal>
+		</PortalProvider>
+	);
+}
 ```
 
 

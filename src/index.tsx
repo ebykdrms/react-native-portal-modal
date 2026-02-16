@@ -1,3 +1,3 @@
-export function multiply(a: number, b: number): number {
-  return a * b;
-}
+export { PortalProvider } from './PortalProvider';
+export { default as Portal } from './Portal';
+export { default as PortalModal } from './PortalModal';
