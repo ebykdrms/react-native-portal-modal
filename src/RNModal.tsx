@@ -6,11 +6,14 @@ import {
   useMemo,
   useState,
 } from 'react';
-import type { FC, ReactNode } from 'react';
-import { BackHandler, Dimensions, StyleSheet, View } from 'react-native';
+import type { FC, PropsWithChildren, ReactNode } from 'react';
+import { BackHandler, Dimensions, Modal, StyleSheet, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Portal from './Portal';
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -19,6 +22,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+
+type GestureRootProps = PropsWithChildren<{
+  style?: StyleProp<ViewStyle>;
+}>;
+
+const GestureHandlerRoot =
+  GestureHandlerRootView as unknown as FC<GestureRootProps>;
 
 // Modal açılış/kapanış animasyonlarında desteklenen isimler.
 enum Animations {
@@ -38,7 +48,7 @@ enum Animations {
   ZOOM_OUT = 'zoomOut',
 }
 
-interface PortalModalProps {
+interface RNModalProps {
   children?: ReactNode;
   isVisible: boolean;
   exitingTimeout?: number;
@@ -67,7 +77,7 @@ interface PortalModalProps {
     | 'zoomOut';
 }
 
-interface PortalModalSwiperProps {
+interface RNModalSwiperProps {
   // Swipe alanında gösterilecek içerik (ör: drag handle veya header)
   children?: ReactNode;
   // Threshold geçildiğinde modal kapatmak için çağrılır
@@ -91,7 +101,7 @@ interface PortalModalSwiperProps {
 
 type SwipeDirection = 'left' | 'right' | 'top' | 'bottom';
 
-interface PortalModalSwipeContextValue {
+interface RNModalSwipeContextValue {
   // Dismiss animasyonunu ekranın dışına göndermek için ekran boyutları
   screenHeight: number;
   screenWidth: number;
@@ -102,15 +112,16 @@ interface PortalModalSwipeContextValue {
 }
 
 // Swiper ile modal gövdesi arasında iletişim kuran iç context.
-const PortalModalSwipeContext =
-  createContext<PortalModalSwipeContextValue | null>(null);
+const RNModalSwipeContext = createContext<RNModalSwipeContextValue | null>(
+  null
+);
 
-interface PortalModalComponent extends FC<PortalModalProps> {
-  Swiper: FC<PortalModalSwiperProps>;
-  Swipe: FC<PortalModalSwiperProps>;
+interface RNModalComponent extends FC<RNModalProps> {
+  Swiper: FC<RNModalSwiperProps>;
+  Swipe: FC<RNModalSwiperProps>;
 }
 
-const PortalModalSwiper: FC<PortalModalSwiperProps> = ({
+const RNModalSwiper: FC<RNModalSwiperProps> = ({
   children,
   onDismiss,
   threshold = 120,
@@ -123,7 +134,7 @@ const PortalModalSwiper: FC<PortalModalSwiperProps> = ({
   resetDuration = 200,
 }) => {
   // Swiper, modalın tamamını taşıyabilmek için parent context'e bağlanır.
-  const swipeContext = useContext(PortalModalSwipeContext);
+  const swipeContext = useContext(RNModalSwipeContext);
 
   // API hem string hem dizi kabul etsin diye normalize ediyoruz.
   const directions = useMemo<SwipeDirection[]>(() => {
@@ -291,14 +302,14 @@ const PortalModalSwiper: FC<PortalModalSwiperProps> = ({
 
   return (
     // Bu wrapper sadece gesture yakalayıcıdır.
-    // Asıl hareket PortalModalBase içindeki content'e uygulanır.
+    // Asıl hareket RNModalBase içindeki content'e uygulanır.
     <GestureDetector gesture={panGesture}>
       <View style={style}>{children}</View>
     </GestureDetector>
   );
 };
 
-const PortalModalBase: FC<PortalModalProps> = ({
+const RNModalBase: FC<RNModalProps> = ({
   children,
   isVisible: _isVisible,
   exitingTimeout = 300,
@@ -327,7 +338,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
   const contentSwipeTranslateX = useSharedValue(0);
   const contentSwipeTranslateY = useSharedValue(0);
 
-  const swipeContextValue = useMemo<PortalModalSwipeContextValue>(
+  const swipeContextValue = useMemo<RNModalSwipeContextValue>(
     () => ({
       screenHeight: height,
       screenWidth: width,
@@ -532,43 +543,50 @@ const PortalModalBase: FC<PortalModalProps> = ({
   if (!isVisible) return null;
 
   return (
-    <Portal>
-      {/* Modal root container */}
-      <View style={[styles.container, style]}>
-        {/* Arkaplan katmanı */}
-        <Animated.View
-          pointerEvents={isVisible ? 'auto' : 'none'}
-          style={[styles.backdrop, backdropStyle, backdropAnimatedStyle]}
-          onTouchStart={onBackdropPress}
-        />
+    <Modal
+      visible={isVisible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+    >
+      <GestureHandlerRoot style={styles.container}>
+        {/* Modal root container */}
+        <View style={[styles.container, style]}>
+          {/* Arkaplan katmanı */}
+          <Animated.View
+            pointerEvents={isVisible ? 'auto' : 'none'}
+            style={[styles.backdrop, backdropStyle, backdropAnimatedStyle]}
+            onTouchStart={onBackdropPress}
+          />
 
-        {/* Modal içerik katmanı */}
-        <Animated.View
-          style={[
-            styles.contentContainer,
-            contentContainerStyle,
-            contentAnimatedStyle,
-          ]}
-        >
-          {/*
-            Swiper alt bileşenleri bu provider üzerinden modal gövdesini taşır.
-            Böylece swipe trigger alanı küçük olsa bile tüm modal birlikte hareket eder.
-          */}
-          <PortalModalSwipeContext.Provider value={swipeContextValue}>
-            {children}
-          </PortalModalSwipeContext.Provider>
-        </Animated.View>
-      </View>
-    </Portal>
+          {/* Modal içerik katmanı */}
+          <Animated.View
+            style={[
+              styles.contentContainer,
+              contentContainerStyle,
+              contentAnimatedStyle,
+            ]}
+          >
+            {/*
+              Swiper alt bileşenleri bu provider üzerinden modal gövdesini taşır.
+              Böylece swipe trigger alanı küçük olsa bile tüm modal birlikte hareket eder.
+            */}
+            <RNModalSwipeContext.Provider value={swipeContextValue}>
+              {children}
+            </RNModalSwipeContext.Provider>
+          </Animated.View>
+        </View>
+      </GestureHandlerRoot>
+    </Modal>
   );
 };
 
-const PortalModal = PortalModalBase as PortalModalComponent;
-const MemoizedPortalModalSwiper = memo(PortalModalSwiper);
-PortalModal.Swiper = MemoizedPortalModalSwiper;
-PortalModal.Swipe = MemoizedPortalModalSwiper;
+const RNModal = RNModalBase as RNModalComponent;
+const MemoizedRNModalSwiper = memo(RNModalSwiper);
+RNModal.Swiper = MemoizedRNModalSwiper;
+RNModal.Swipe = MemoizedRNModalSwiper;
 
-export default PortalModal;
+export default RNModal;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

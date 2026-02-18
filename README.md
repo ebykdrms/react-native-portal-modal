@@ -2,9 +2,9 @@
 
 Bu paket, React Native'deki modal kullanımında yaşanan sorunlara karşı minimal bir çözüm olarak geliştirildi.
 
-React Native'in modal'ı tüm proje katmanının üzerinde bir katman üzerinde çalışırken bu paket JS düzeyinde portal açarak üst katmanlara ulaşma mantığını kullanır.
+React Native'in modal'ı tüm proje katmanının üzerinde bir katman üzerinde çalışırken bu paket JS düzeyinde portal açarak üst katmanlara ulaşma mantığını kullanır. (Not: RNModal bileeninde portal kullanımına gerek yoktur.)
 
-Paket tek başına portal mantığı için de kullanılabileceği gibi asıl amacı bunun üzerine inşa edilen modal'dır.
+Paket tek başına portal mantığı için de kullanılabileceği gibi asıl amacı modal'dır.
 
 
 ## Paket İçeriği
@@ -12,6 +12,7 @@ Paket tek başına portal mantığı için de kullanılabileceği gibi asıl ama
 - `PortalProvider`: Portal'ın açıldığı katmanını oluşturur.
 - `Portal`: Verilen `children` içeriğinin `PortalProvider` düzeyinde render edilmesini sağlar.
 - `PortalModal`: Portal üzerinde modal açmak için kullanılır.
+- `RNModal`: React Native `Modal` tabanlı alternatif; `PortalProvider` gerektirmez.
 
 ## Bağımlılıklar
 
@@ -19,15 +20,23 @@ Bu portal sistemi aşağıdaki paketleri kullanır:
 
 - `react`
 - `react-native`
-- `react-native-reanimated` (min v3)
+- `react-native-reanimated` (**v4+**)
+- `react-native-gesture-handler`
+- `react-native-worklets`
 
 ## Kurulum
 
-Projenizde `react-native-reanimated` paketinin kurulu olduğundan emin olun. V3 ve V4 için farklı kurulum yönergeleri olduğundan doğrudan [projenin dokümantasyonu](https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started)ndaki yönergeleri izlemelisiniz.
+Bu paket artık `react-native-reanimated` **v4** API'lerine bağımlıdır; v3 desteklenmez.
 
-Projede basit Reanimated fonksiyonları kullanıldığı için v3-v4 versiyon farkından etkilenmeyecektir.
+Kurulumdan önce aşağıdaki bağımlılıkların proje tarafında kurulu ve yapılandırılmış olduğundan emin olun:
 
-Reanimated kuruluysa bizim paketimizi doğrduan kurabilir ve doğrudan kullanabilirsiniz. Ek bir kurulum gerektirmez:
+- `react-native-reanimated@^4`
+- `react-native-gesture-handler`
+- `react-native-worklets`
+
+Reanimated için doğrudan [resmi kurulum dokümantasyonundaki](https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started) adımları izleyin.
+
+Bağımlılıklar hazırsa paketimizi kurabilirsiniz:
 
 ```sh
 npm install @ebykdrms/react-native-portal-modal
@@ -107,13 +116,30 @@ import {PortalModal} from '@ebykdrms/react-native-portal-modal';
 </PortalModal>;
 ```
 
+### 3) `RNModal` kullanımı (Provider gerektirmez)
+Bu bileşen PortalModal'a alternatif olarak doğrudan react-native'in Modal bileşenini kullanır. Böylece en üst katmanda görüntülenme konusunu çözer. Ancak tüm swipe, backdrop, açılma/kapanma animasyonları yine reanimated ile gerçekleştirilmiştir.
+
+```tsx
+import {RNModal} from '@ebykdrms/react-native-portal-modal';
+
+<RNModal
+	isVisible={isVisible}
+	onBackdropPress={() => setIsVisible(false)}
+	onBackButtonPress={() => setIsVisible(false)}
+	enteringAnimation="slideInDown"
+	exitingAnimation="slideOutDown">
+	<View>{/* modal içeriği */}</View>
+</RNModal>;
+```
+
 ## `PortalModal` Props
 
 | Prop | Açıklama | Varsayılan / Notlar |
 | --- | --- | --- |
 | `isVisible` | Modal açık/kapalı durumu. | **zorunlu** |
-| `enteringTimeout` | Açılış animasyon süresi (ms). | `300` |
+| `enteringTimeout` | Açılış animasyon süresi (ms). | `500` |
 | `exitingTimeout` | Kapanış animasyon süresi (ms). | `300` |
+| `onModalHide` | Kapanış animasyonu sonrası callback. | - |
 | `onBackdropPress` | Backdrop dokunma callback'i. | - |
 | `onBackButtonPress` | Android geri tuşu callback'i. | - |
 | `style` | Modal kök container stili. | - |
@@ -156,6 +182,8 @@ import {PortalModal} from '@ebykdrms/react-native-portal-modal';
 </PortalModal>
 ```
 
+`RNModal.Swiper` API'si `PortalModal.Swiper` ile aynıdır.
+
 ## Context ile İlgili Önemli Not
 
 Portal host, içeriği uygulama ağacında farklı bir katmanda render eder. Bu nedenle bazı ekran-spesifik context'ler portal içinde `undefined` olabilir.
@@ -175,6 +203,7 @@ const value = useContext(MyContext);
 ## Sorun Giderme
 
 - Modal görünmüyorsa: `PortalProvider` üst ağaçta tanımlı mı kontrol edin.
+- `RNModal` kullanıyorsanız `PortalProvider` gerekmez.
 - Swipe çalışmıyorsa: `PortalModal.Swiper` gerçekten modal içinde mi ve `disabled` false mu kontrol edin.
 - Scroll ile çakışıyorsa: `prioritizeNestedScroll` değerini ve `isScrollAtStart` akışını kontrol edin.
 - Context `undefined` ise: ilgili context'i modal içinde tekrar provider ile köprüleyin.
