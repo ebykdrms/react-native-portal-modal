@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   PortalModal,
   PortalProvider,
@@ -14,68 +15,73 @@ export default function App() {
   const closeRNModal = () => setIsRNModalVisible(false);
 
   return (
-    <PortalProvider>
-      <View style={styles.container}>
-        <Text style={styles.title}>react-native-portal-modal</Text>
-        <Text style={styles.subtitle}>PortalModal ve RNModal örneği</Text>
+    <GestureHandlerRootView style={styles.root}>
+      <PortalProvider>
+        <View style={styles.container}>
+          <Text style={styles.title}>react-native-portal-modal</Text>
+          <Text style={styles.subtitle}>PortalModal ve RNModal örneği</Text>
 
-        <Pressable
-          style={[styles.button, styles.primaryButton]}
-          onPress={() => setIsPortalVisible(true)}
-        >
-          <Text style={styles.buttonText}>PortalModal Aç</Text>
-        </Pressable>
+          <Pressable
+            style={[styles.button, styles.primaryButton]}
+            onPress={() => setIsPortalVisible(true)}
+          >
+            <Text style={styles.buttonText}>PortalModal Aç</Text>
+          </Pressable>
 
-        <Pressable
-          style={[styles.button, styles.secondaryButton]}
-          onPress={() => setIsRNModalVisible(true)}
-        >
-          <Text style={styles.buttonText}>RNModal Aç</Text>
-        </Pressable>
+          <Pressable
+            style={[styles.button, styles.secondaryButton]}
+            onPress={() => setIsRNModalVisible(true)}
+          >
+            <Text style={styles.buttonText}>RNModal Aç</Text>
+          </Pressable>
 
-        <PortalModal
-          isVisible={isPortalVisible}
-          onBackdropPress={closePortalModal}
-          onBackButtonPress={closePortalModal}
-          enteringAnimation="slideInUp"
-          exitingAnimation="slideOutDown"
-          contentContainerStyle={styles.modalContentContainer}
-        >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>PortalModal</Text>
-            <Text style={styles.modalDescription}>
-              Bu modal, PortalProvider üzerinden render edilir.
-            </Text>
-            <Pressable style={styles.closeButton} onPress={closePortalModal}>
-              <Text style={styles.closeButtonText}>Kapat</Text>
-            </Pressable>
-          </View>
-        </PortalModal>
+          <PortalModal
+            isVisible={isPortalVisible}
+            onBackdropPress={closePortalModal}
+            onBackButtonPress={closePortalModal}
+            enteringAnimation="slideInUp"
+            exitingAnimation="slideOutDown"
+            contentContainerStyle={styles.modalContentContainer}
+          >
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>PortalModal</Text>
+              <Text style={styles.modalDescription}>
+                Bu modal, PortalProvider üzerinden render edilir.
+              </Text>
+              <Pressable style={styles.closeButton} onPress={closePortalModal}>
+                <Text style={styles.closeButtonText}>Kapat</Text>
+              </Pressable>
+            </View>
+          </PortalModal>
 
-        <RNModal
-          isVisible={isRNModalVisible}
-          onBackdropPress={closeRNModal}
-          onBackButtonPress={closeRNModal}
-          enteringAnimation="zoomFadeIn"
-          exitingAnimation="zoomFadeOut"
-          contentContainerStyle={styles.modalContentContainer}
-        >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>RNModal</Text>
-            <Text style={styles.modalDescription}>
-              Bu modal, React Native Modal kullanır ve Provider gerektirmez.
-            </Text>
-            <Pressable style={styles.closeButton} onPress={closeRNModal}>
-              <Text style={styles.closeButtonText}>Kapat</Text>
-            </Pressable>
-          </View>
-        </RNModal>
-      </View>
-    </PortalProvider>
+          <RNModal
+            isVisible={isRNModalVisible}
+            onBackdropPress={closeRNModal}
+            onBackButtonPress={closeRNModal}
+            enteringAnimation="zoomFadeIn"
+            exitingAnimation="zoomFadeOut"
+            contentContainerStyle={styles.modalContentContainer}
+          >
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>RNModal</Text>
+              <Text style={styles.modalDescription}>
+                Bu modal, React Native Modal kullanır ve Provider gerektirmez.
+              </Text>
+              <Pressable style={styles.closeButton} onPress={closeRNModal}>
+                <Text style={styles.closeButtonText}>Kapat</Text>
+              </Pressable>
+            </View>
+          </RNModal>
+        </View>
+      </PortalProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     paddingHorizontal: 20,

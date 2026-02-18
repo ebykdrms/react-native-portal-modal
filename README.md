@@ -34,7 +34,18 @@ Kurulumdan önce aşağıdaki bağımlılıkların proje tarafında kurulu ve ya
 - `react-native-gesture-handler`
 - `react-native-worklets`
 
-Reanimated için doğrudan [resmi kurulum dokümantasyonundaki](https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started) adımları izleyin.
+Kurulum için resmi dokümanlar:
+
+- Reanimated: https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started/#installation
+- Gesture Handler: https://docs.swmansion.com/react-native-gesture-handler/docs/fundamentals/installation
+- Worklets: https://docs.swmansion.com/react-native-worklets/docs/#installation
+
+Özellikle `React Native Community CLI` kullanan projelerde aşağıdaki adımlar zorunludur:
+
+1. `babel.config.js` içinde `react-native-worklets/plugin` eklensin.
+2. `react-native-worklets/plugin` **plugins dizisinde en sonda** olsun.
+3. Gesture'ların stabil çalışması için uygulama kökü `GestureHandlerRootView` ile sarılsın.
+4. Native bağımlılıklar güncellendikten sonra iOS için pod kurulumu ve Metro cache temizliği yapılsın.
 
 Bağımlılıklar hazırsa paketimizi kurabilirsiniz:
 
