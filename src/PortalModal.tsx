@@ -11,9 +11,12 @@ import type { FC, ReactNode } from 'react';
 import {
   BackHandler,
   Dimensions,
+  findNodeHandle,
   Keyboard,
   Platform,
   StyleSheet,
+  TextInput,
+  UIManager,
   View,
 } from 'react-native';
 import type { KeyboardEvent, StyleProp, ViewStyle } from 'react-native';
@@ -582,9 +585,97 @@ const PortalModalBase: FC<PortalModalProps> = ({
       contentKeyboardTranslateY.value = withTiming(toValue, { duration });
     };
 
-    const onKeyboardShow = (event: KeyboardEvent) => {
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+      });
+
+    const getFocusedInputBottomInWindowOnce = (): Promise<number | null> => {
+      return new Promise((resolve) => {
+        const textInputState = TextInput.State as unknown as {
+          currentlyFocusedInput?: () => {
+            measureInWindow?: (
+              callback: (x: number, y: number, w: number, h: number) => void
+            ) => void;
+          } | null;
+        };
+
+        const focusedInput = textInputState.currentlyFocusedInput?.();
+
+        const resolveFromMeasure = (
+          _x: number,
+          y: number,
+          _w: number,
+          h: number
+        ) => {
+          if (typeof y !== 'number' || typeof h !== 'number') {
+            resolve(null);
+            return;
+          }
+
+          const focusedInputBottom = y + h;
+          resolve(focusedInputBottom);
+        };
+
+        const resolveFromFallbackHandle = () => {
+          const fallbackTag = focusedInput
+            ? findNodeHandle(focusedInput)
+            : null;
+
+          if (typeof fallbackTag === 'number') {
+            UIManager.measureInWindow(fallbackTag, (_x, y, _w, h) => {
+              resolveFromMeasure(_x, y, _w, h);
+            });
+            return true;
+          }
+
+          return false;
+        };
+
+        if (
+          focusedInput &&
+          typeof focusedInput.measureInWindow === 'function'
+        ) {
+          focusedInput.measureInWindow(
+            (_x: number, y: number, _w: number, h: number) => {
+              resolveFromMeasure(_x, y, _w, h);
+            }
+          );
+          return;
+        }
+
+        if (resolveFromFallbackHandle()) {
+          return;
+        }
+
+        resolve(null);
+      });
+    };
+
+    const getFocusedInputBottomInWindow = async (): Promise<number | null> => {
+      const maxAttempts = Platform.OS === 'ios' ? 4 : 1;
+      const retryDelayMs = 16;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const focusedInputBottom = await getFocusedInputBottomInWindowOnce();
+
+        if (typeof focusedInputBottom === 'number') {
+          return focusedInputBottom;
+        }
+
+        if (attempt < maxAttempts) {
+          await wait(retryDelayMs);
+        }
+      }
+
+      return null;
+    };
+
+    const onKeyboardShow = async (event: KeyboardEvent) => {
       const keyboardHeight = Math.max(event?.endCoordinates?.height || 0, 0);
       const extraHeight = Math.max(extraKeyboardHeight || 0, 0);
+      const keyboardCheckPadding = 30;
+      const keyboardHeightForCheck = keyboardHeight + keyboardCheckPadding;
       const animationDuration =
         typeof keyboardEnteringDuration === 'number'
           ? keyboardEnteringDuration
@@ -592,7 +683,17 @@ const PortalModalBase: FC<PortalModalProps> = ({
             ? event.duration
             : 250;
 
-      animateKeyboardOffset(-(keyboardHeight + extraHeight), animationDuration);
+      const focusedInputBottom = await getFocusedInputBottomInWindow();
+      const visibleAreaBottom = height - keyboardHeightForCheck;
+      const shouldTransform =
+        typeof focusedInputBottom === 'number'
+          ? visibleAreaBottom < focusedInputBottom
+          : false;
+
+      animateKeyboardOffset(
+        shouldTransform ? -(keyboardHeight + extraHeight) : 0,
+        animationDuration
+      );
     };
 
     const onKeyboardHide = (event: KeyboardEvent) => {
@@ -620,6 +721,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
     extraKeyboardHeight,
     keyboardEnteringDuration,
     keyboardExitingDuration,
+    height,
   ]);
 
   useEffect(() => {
