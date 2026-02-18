@@ -1856,7 +1856,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ebykdrms/react-native-portal-modal@workspace:.":
+"@ebykdrms/react-native-portal-modal@workspace:*, @ebykdrms/react-native-portal-modal@workspace:.":
   version: 0.0.0-use.local
   resolution: "@ebykdrms/react-native-portal-modal@workspace:."
   dependencies:
@@ -11097,6 +11097,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-native-portal-modal-example@workspace:example"
   dependencies:
+    "@ebykdrms/react-native-portal-modal": "workspace:*"
     "@expo/metro-runtime": "npm:~6.1.2"
     expo: "npm:~54.0.33"
     expo-status-bar: "npm:~3.0.9"

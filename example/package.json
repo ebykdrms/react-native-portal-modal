@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@ebykdrms/react-native-portal-modal": "workspace:*",
     "@expo/metro-runtime": "~6.1.2",
     "expo": "~54.0.33",
     "expo-status-bar": "~3.0.9",

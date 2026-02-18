@@ -5,7 +5,7 @@ import {
   PortalModal,
   PortalProvider,
   RNModal,
-} from 'react-native-portal-modal';
+} from '@ebykdrms/react-native-portal-modal';
 
 export default function App() {
   const [isPortalVisible, setIsPortalVisible] = useState(false);
