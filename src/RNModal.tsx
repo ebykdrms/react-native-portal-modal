@@ -1,14 +1,23 @@
 import {
   createContext,
   memo,
+  useRef,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from 'react';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
-import { BackHandler, Dimensions, Modal, StyleSheet, View } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
+import {
+  BackHandler,
+  Dimensions,
+  Keyboard,
+  Modal,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
+import type { KeyboardEvent, StyleProp, ViewStyle } from 'react-native';
 import {
   Gesture,
   GestureDetector,
@@ -56,6 +65,11 @@ interface RNModalProps {
   onModalHide?: () => void;
   onBackdropPress?: () => void;
   onBackButtonPress?: () => void;
+  extraKeyboardHeight?: number;
+  keyboardEnteringDuration?: number;
+  keyboardExitingDuration?: number;
+  disableKeyboardTransforming?: boolean;
+  dismissKeyboardOnBackdropPress?: boolean;
   style?: StyleProp<ViewStyle>;
   backdropStyle?: StyleProp<Omit<ViewStyle, 'opacity'>>;
   contentContainerStyle?: StyleProp<Omit<ViewStyle, 'opacity' | 'transform'>>;
@@ -317,6 +331,11 @@ const RNModalBase: FC<RNModalProps> = ({
   onModalHide,
   onBackdropPress,
   onBackButtonPress,
+  extraKeyboardHeight = 0,
+  keyboardEnteringDuration,
+  keyboardExitingDuration,
+  disableKeyboardTransforming = false,
+  dismissKeyboardOnBackdropPress = false,
   style,
   backdropStyle,
   contentContainerStyle,
@@ -324,6 +343,7 @@ const RNModalBase: FC<RNModalProps> = ({
   exitingAnimation,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const isKeyboardVisibleRef = useRef(false);
 
   const { height, width } = Dimensions.get('screen');
 
@@ -333,6 +353,7 @@ const RNModalBase: FC<RNModalProps> = ({
   const contentTranslateY = useSharedValue(0);
   const contentTranslateX = useSharedValue(0);
   const contentScale = useSharedValue(1);
+  const contentKeyboardTranslateY = useSharedValue(0);
 
   // Swipe sırasında dinamik taşınan ekstra offset'ler
   const contentSwipeTranslateX = useSharedValue(0);
@@ -357,12 +378,55 @@ const RNModalBase: FC<RNModalProps> = ({
       opacity: contentOpacity.value,
       transform: [
         // Normal enter/exit animasyonu + swipe offset birlikte uygulanır.
-        { translateY: contentTranslateY.value + contentSwipeTranslateY.value },
+        {
+          translateY:
+            contentTranslateY.value +
+            contentSwipeTranslateY.value +
+            contentKeyboardTranslateY.value,
+        },
         { translateX: contentTranslateX.value + contentSwipeTranslateX.value },
         { scale: contentScale.value },
       ],
     };
   });
+
+  useEffect(() => {
+    if (!_isVisible || !dismissKeyboardOnBackdropPress) {
+      isKeyboardVisibleRef.current = false;
+      return;
+    }
+
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onKeyboardShow = () => {
+      isKeyboardVisibleRef.current = true;
+    };
+
+    const onKeyboardHide = () => {
+      isKeyboardVisibleRef.current = false;
+    };
+
+    const showListener = Keyboard.addListener(showEvent, onKeyboardShow);
+    const hideListener = Keyboard.addListener(hideEvent, onKeyboardHide);
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+      isKeyboardVisibleRef.current = false;
+    };
+  }, [_isVisible, dismissKeyboardOnBackdropPress]);
+
+  const handleBackdropPress = () => {
+    if (dismissKeyboardOnBackdropPress && isKeyboardVisibleRef.current) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    onBackdropPress?.();
+  };
 
   useEffect(() => {
     if (_isVisible) {
@@ -371,6 +435,7 @@ const RNModalBase: FC<RNModalProps> = ({
       cancelAnimation(contentTranslateY);
       cancelAnimation(contentTranslateX);
       cancelAnimation(contentScale);
+      cancelAnimation(contentKeyboardTranslateY);
       cancelAnimation(contentSwipeTranslateX);
       cancelAnimation(contentSwipeTranslateY);
 
@@ -383,6 +448,7 @@ const RNModalBase: FC<RNModalProps> = ({
       contentTranslateY.value = 0;
       contentTranslateX.value = 0;
       contentScale.value = 1;
+      contentKeyboardTranslateY.value = 0;
       contentSwipeTranslateX.value = 0;
       contentSwipeTranslateY.value = 0;
 
@@ -437,6 +503,7 @@ const RNModalBase: FC<RNModalProps> = ({
       cancelAnimation(contentTranslateY);
       cancelAnimation(contentTranslateX);
       cancelAnimation(contentScale);
+      cancelAnimation(contentKeyboardTranslateY);
       cancelAnimation(contentSwipeTranslateX);
       cancelAnimation(contentSwipeTranslateY);
 
@@ -448,6 +515,7 @@ const RNModalBase: FC<RNModalProps> = ({
       contentTranslateY.value = 0;
       contentTranslateX.value = 0;
       contentScale.value = 1;
+      contentKeyboardTranslateY.value = 0;
 
       switch (exitingAnimation) {
         // Seçilen kapanış animasyonuna göre içerik çıkış hareketi.
@@ -498,6 +566,7 @@ const RNModalBase: FC<RNModalProps> = ({
     contentTranslateY,
     contentTranslateX,
     contentScale,
+    contentKeyboardTranslateY,
     contentSwipeTranslateX,
     contentSwipeTranslateY,
     enteringAnimation,
@@ -507,6 +576,62 @@ const RNModalBase: FC<RNModalProps> = ({
     onModalHide,
     height,
     width,
+  ]);
+
+  useEffect(() => {
+    if (!_isVisible || disableKeyboardTransforming) {
+      contentKeyboardTranslateY.value = 0;
+      return;
+    }
+
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const animateKeyboardOffset = (toValue: number, duration: number) => {
+      cancelAnimation(contentKeyboardTranslateY);
+      contentKeyboardTranslateY.value = withTiming(toValue, { duration });
+    };
+
+    const onKeyboardShow = (event: KeyboardEvent) => {
+      const keyboardHeight = Math.max(event?.endCoordinates?.height || 0, 0);
+      const extraHeight = Math.max(extraKeyboardHeight || 0, 0);
+      const animationDuration =
+        typeof keyboardEnteringDuration === 'number'
+          ? keyboardEnteringDuration
+          : Platform.OS === 'ios' && typeof event?.duration === 'number'
+            ? event.duration
+            : 250;
+
+      animateKeyboardOffset(-(keyboardHeight + extraHeight), animationDuration);
+    };
+
+    const onKeyboardHide = (event: KeyboardEvent) => {
+      const animationDuration =
+        typeof keyboardExitingDuration === 'number'
+          ? keyboardExitingDuration
+          : Platform.OS === 'ios' && typeof event?.duration === 'number'
+            ? event.duration
+            : 250;
+
+      animateKeyboardOffset(0, animationDuration);
+    };
+
+    const showListener = Keyboard.addListener(showEvent, onKeyboardShow);
+    const hideListener = Keyboard.addListener(hideEvent, onKeyboardHide);
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, [
+    _isVisible,
+    contentKeyboardTranslateY,
+    disableKeyboardTransforming,
+    extraKeyboardHeight,
+    keyboardEnteringDuration,
+    keyboardExitingDuration,
   ]);
 
   useEffect(() => {
@@ -556,7 +681,7 @@ const RNModalBase: FC<RNModalProps> = ({
           <Animated.View
             pointerEvents={isVisible ? 'auto' : 'none'}
             style={[styles.backdrop, backdropStyle, backdropAnimatedStyle]}
-            onTouchStart={onBackdropPress}
+            onTouchStart={handleBackdropPress}
           />
 
           {/* Modal içerik katmanı */}

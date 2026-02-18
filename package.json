@@ -1,6 +1,6 @@
 {
   "name": "@ebykdrms/react-native-portal-modal",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "JS düzeyinde portal ve reanimated destekli bir modal",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -49,6 +49,9 @@
     "global-modal",
     "overlay",
     "swipe-dismiss",
+    "keyboard-aware",
+    "keyboard-dismiss",
+    "keyboard-avoidance",
     "gesture-handler",
     "reanimated",
     "react-native-reanimated",

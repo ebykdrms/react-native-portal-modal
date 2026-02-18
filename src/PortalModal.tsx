@@ -1,14 +1,22 @@
 import {
   createContext,
   memo,
+  useRef,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from 'react';
 import type { FC, ReactNode } from 'react';
-import { BackHandler, Dimensions, StyleSheet, View } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
+import {
+  BackHandler,
+  Dimensions,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
+import type { KeyboardEvent, StyleProp, ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Portal from './Portal';
 import Animated, {
@@ -46,6 +54,11 @@ interface PortalModalProps {
   onModalHide?: () => void;
   onBackdropPress?: () => void;
   onBackButtonPress?: () => void;
+  extraKeyboardHeight?: number;
+  keyboardEnteringDuration?: number;
+  keyboardExitingDuration?: number;
+  disableKeyboardTransforming?: boolean;
+  dismissKeyboardOnBackdropPress?: boolean;
   style?: StyleProp<ViewStyle>;
   backdropStyle?: StyleProp<Omit<ViewStyle, 'opacity'>>;
   contentContainerStyle?: StyleProp<Omit<ViewStyle, 'opacity' | 'transform'>>;
@@ -306,6 +319,11 @@ const PortalModalBase: FC<PortalModalProps> = ({
   onModalHide,
   onBackdropPress,
   onBackButtonPress,
+  extraKeyboardHeight = 0,
+  keyboardEnteringDuration,
+  keyboardExitingDuration,
+  disableKeyboardTransforming = false,
+  dismissKeyboardOnBackdropPress = false,
   style,
   backdropStyle,
   contentContainerStyle,
@@ -313,6 +331,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
   exitingAnimation,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const isKeyboardVisibleRef = useRef(false);
 
   const { height, width } = Dimensions.get('screen');
 
@@ -322,6 +341,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
   const contentTranslateY = useSharedValue(0);
   const contentTranslateX = useSharedValue(0);
   const contentScale = useSharedValue(1);
+  const contentKeyboardTranslateY = useSharedValue(0);
 
   // Swipe sırasında dinamik taşınan ekstra offset'ler
   const contentSwipeTranslateX = useSharedValue(0);
@@ -346,12 +366,55 @@ const PortalModalBase: FC<PortalModalProps> = ({
       opacity: contentOpacity.value,
       transform: [
         // Normal enter/exit animasyonu + swipe offset birlikte uygulanır.
-        { translateY: contentTranslateY.value + contentSwipeTranslateY.value },
+        {
+          translateY:
+            contentTranslateY.value +
+            contentSwipeTranslateY.value +
+            contentKeyboardTranslateY.value,
+        },
         { translateX: contentTranslateX.value + contentSwipeTranslateX.value },
         { scale: contentScale.value },
       ],
     };
   });
+
+  useEffect(() => {
+    if (!_isVisible || !dismissKeyboardOnBackdropPress) {
+      isKeyboardVisibleRef.current = false;
+      return;
+    }
+
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onKeyboardShow = () => {
+      isKeyboardVisibleRef.current = true;
+    };
+
+    const onKeyboardHide = () => {
+      isKeyboardVisibleRef.current = false;
+    };
+
+    const showListener = Keyboard.addListener(showEvent, onKeyboardShow);
+    const hideListener = Keyboard.addListener(hideEvent, onKeyboardHide);
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+      isKeyboardVisibleRef.current = false;
+    };
+  }, [_isVisible, dismissKeyboardOnBackdropPress]);
+
+  const handleBackdropPress = () => {
+    if (dismissKeyboardOnBackdropPress && isKeyboardVisibleRef.current) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    onBackdropPress?.();
+  };
 
   useEffect(() => {
     if (_isVisible) {
@@ -360,6 +423,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
       cancelAnimation(contentTranslateY);
       cancelAnimation(contentTranslateX);
       cancelAnimation(contentScale);
+      cancelAnimation(contentKeyboardTranslateY);
       cancelAnimation(contentSwipeTranslateX);
       cancelAnimation(contentSwipeTranslateY);
 
@@ -372,6 +436,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
       contentTranslateY.value = 0;
       contentTranslateX.value = 0;
       contentScale.value = 1;
+      contentKeyboardTranslateY.value = 0;
       contentSwipeTranslateX.value = 0;
       contentSwipeTranslateY.value = 0;
 
@@ -426,6 +491,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
       cancelAnimation(contentTranslateY);
       cancelAnimation(contentTranslateX);
       cancelAnimation(contentScale);
+      cancelAnimation(contentKeyboardTranslateY);
       cancelAnimation(contentSwipeTranslateX);
       cancelAnimation(contentSwipeTranslateY);
 
@@ -437,6 +503,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
       contentTranslateY.value = 0;
       contentTranslateX.value = 0;
       contentScale.value = 1;
+      contentKeyboardTranslateY.value = 0;
 
       switch (exitingAnimation) {
         // Seçilen kapanış animasyonuna göre içerik çıkış hareketi.
@@ -487,6 +554,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
     contentTranslateY,
     contentTranslateX,
     contentScale,
+    contentKeyboardTranslateY,
     contentSwipeTranslateX,
     contentSwipeTranslateY,
     enteringAnimation,
@@ -496,6 +564,62 @@ const PortalModalBase: FC<PortalModalProps> = ({
     onModalHide,
     height,
     width,
+  ]);
+
+  useEffect(() => {
+    if (!_isVisible || disableKeyboardTransforming) {
+      contentKeyboardTranslateY.value = 0;
+      return;
+    }
+
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const animateKeyboardOffset = (toValue: number, duration: number) => {
+      cancelAnimation(contentKeyboardTranslateY);
+      contentKeyboardTranslateY.value = withTiming(toValue, { duration });
+    };
+
+    const onKeyboardShow = (event: KeyboardEvent) => {
+      const keyboardHeight = Math.max(event?.endCoordinates?.height || 0, 0);
+      const extraHeight = Math.max(extraKeyboardHeight || 0, 0);
+      const animationDuration =
+        typeof keyboardEnteringDuration === 'number'
+          ? keyboardEnteringDuration
+          : Platform.OS === 'ios' && typeof event?.duration === 'number'
+            ? event.duration
+            : 250;
+
+      animateKeyboardOffset(-(keyboardHeight + extraHeight), animationDuration);
+    };
+
+    const onKeyboardHide = (event: KeyboardEvent) => {
+      const animationDuration =
+        typeof keyboardExitingDuration === 'number'
+          ? keyboardExitingDuration
+          : Platform.OS === 'ios' && typeof event?.duration === 'number'
+            ? event.duration
+            : 250;
+
+      animateKeyboardOffset(0, animationDuration);
+    };
+
+    const showListener = Keyboard.addListener(showEvent, onKeyboardShow);
+    const hideListener = Keyboard.addListener(hideEvent, onKeyboardHide);
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, [
+    _isVisible,
+    contentKeyboardTranslateY,
+    disableKeyboardTransforming,
+    extraKeyboardHeight,
+    keyboardEnteringDuration,
+    keyboardExitingDuration,
   ]);
 
   useEffect(() => {
@@ -539,7 +663,7 @@ const PortalModalBase: FC<PortalModalProps> = ({
         <Animated.View
           pointerEvents={isVisible ? 'auto' : 'none'}
           style={[styles.backdrop, backdropStyle, backdropAnimatedStyle]}
-          onTouchStart={onBackdropPress}
+          onTouchStart={handleBackdropPress}
         />
 
         {/* Modal içerik katmanı */}
